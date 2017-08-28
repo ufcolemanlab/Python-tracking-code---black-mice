@@ -18,8 +18,8 @@ import cv2
 import numpy as np
 import os
 
-
 crop_chamber = False
+#frameNumber = 7000 #enter frame number to start vetting from (frame 7590 is ~first stim onset after 5min delay/gray)
 
 #GUI stuff
 root = tk.Tk()
@@ -38,8 +38,8 @@ elif str.find(opcv_versioncheck,'2') == 0:
 
 
 #Setup file lists
-videoName = str(directory) +"/vid*.h264"
-roiName = str(directory) +"/vid*.p"
+videoName = str(directory) +"/*.h264"
+roiName = str(directory) +"/*.p"
 
 videoList = glob(videoName)
 roiList = glob(roiName)
@@ -127,11 +127,12 @@ def main():
         corners = getROI["corners"]
         roiPoints = getROI["roiPoints"]
         
-        print(str(roiFrame))
+        print(str('   roiFrame: '+str(roiFrame)))
        
         dist_all = []
         mouse_centroid = []
         frameNumber = 0
+        stim_frame1_number = 7300 
         dist = 0
         avg_index = 0
         
@@ -152,7 +153,7 @@ def main():
         for j in range(roiFrame):
             ret, frame = cap.read()
             frameNumber +=1
-        print("frameNumber: "+str(frameNumber))
+        print("   frameNumber: "+str(frameNumber))
         
         #set up ROI for tracking
         roi = frame[roiUL[1]:roiLR[1],roiUL[0]:roiLR[0]]
@@ -170,6 +171,7 @@ def main():
             if not ret:
                 break
             frameNumber +=1
+            #print(frameNumber)
                 
 #            #detect stimulus and add frameNumber to appropriate list
 #            left_on, right_on = detectStimulus(frame)
@@ -211,65 +213,55 @@ def main():
             oldAvg = avg
             avg_index+=1
 
+            #calculate directional points
+            mid = tuple((np.mean(pts,axis=0).astype(int)))
+            front = tuple((np.mean([pts[3],pts[0]],axis=0).astype(int)))
+            right = tuple((np.mean([pts[0],pts[1]],axis=0).astype(int)))
+#            back = tuple((np.mean([pts[1],pts[2]],axis=0).astype(int)))
+#            left = tuple((np.mean([pts[2],pts[3]],axis=0).astype(int)))
+            
+            #directionalPoints.append(np.array([front,right,back,left]))
+
             #draw the roi
             cv2.polylines(frame, [pts], True, (0, 255, 0), 2)
             
-            #show the frame for 300 frames
-            #if frameNumber <= roiFrame + 1000:
-            cv2.imshow(frame_title,frame)
-            key = cv2.waitKey(1) & 0xFF
+            #draw red to the front of the mouse
+            cv2.line(frame,(pts[3][0],pts[3][1]),(pts[0][0],pts[0][1]),(0,0,255),2)
+            
+            #draw blue to the right of the mouse
+            cv2.line(frame,(pts[0][0],pts[0][1]),(pts[1][0],pts[1][1]),(255,0,0),2)
+            
+            #draw directional lines
+            cv2.line(frame,mid,front,(0,0,255),2)
+            cv2.line(frame,mid,right,(255,0,0),2)
+            
+            #Skip most frames before first stim frame to start viewing?
+            if frameNumber > stim_frame1_number:
+                cv2.imshow(frame_title,frame)
+                key = cv2.waitKey(1) & 0xFF
             #elif frameNumber > roiFrame + 1000:
                 #cv2.destroyAllWindows()
                 #break
             
-            #print('PRESS Y to keep ROI')
-            if key == ord('y'):
-                cv2.destroyAllWindows()
-                cap.release()
-                print("OK: "+str(frameNumber)+" "+frame_title)
-                print(" ")
-            #print('PRESS N to REDO ROI')    
-            elif key == ord('n'):
-                redoFiles.append(videoList[i])
-                cv2.destroyAllWindows()
-                cap.release()
-                print("redo: "+str(frameNumber)+" "+frame_title)
-                print(" ")
-            
-            #quit if user presses 'q' or 'esc'
-            if key == ord('q') or key == 27:
-                cv2.destroyAllWindows()
-                cap.release()
-                return
-
-#        #detect onsets/offsets on the screen which showed more activity
-#        if (len(left_stim_list)>len(right_stim_list)):
-#            stimLocation = 'left'
-#            stimFrames = getOnsets(left_stim_list)
-#        elif (len(left_stim_list)<len(right_stim_list)):
-#            stimLocation = 'right'
-#            stimFrames = getOnsets(right_stim_list)
-#        else:
-#            print "No stimulus detected: check stimulus parameters"
-#            
-#        # Final check added by (JEC)    
-#        if (len(stimFrames)<5) or (len(stimFrames)<5):
-#            print "Problem with stimFrames output: check stimulus parameters"
-#            print "     May need to adjust 'canny_left' and 'canny_right' thresholds in 'def detectStimulus'"
-#            
-#        
-#        print "stims:"
-#        print stimFrames
-#        print "distance travelled: " + str(dist)
-#        print " "
-#        
-#        #save to matlab file
-#        savedVariables = {"crop_chamber":crop_chamber, "corners": corners, "file": saveName,"dist_all":dist_all,
-#                          "mouse_centroid":mouse_centroid,"roiPts":roiPoints,
-#                          "roiFrame":roiFrame,"totalFrames":frameNumber,
-#                          "stimLocation":stimLocation,"stimFrames":stimFrames}
-#        matlab.savemat(saveName+'.mat', savedVariables)
-    
+                #print('PRESS Y to keep ROI')
+                if key == ord('y'):
+                    cv2.destroyAllWindows()
+                    cap.release()
+                    print("OK: "+str(frameNumber)+" "+frame_title)
+                    print(" ")
+                #print('PRESS N to REDO ROI')    
+                elif key == ord('n'):
+                    redoFiles.append(videoList[i])
+                    cv2.destroyAllWindows()
+                    cap.release()
+                    print("redo: "+str(frameNumber)+" "+frame_title)
+                    print(" ")
+                
+                #quit if user presses 'q' or 'esc'
+                if key == ord('q') or key == 27:
+                    cv2.destroyAllWindows()
+                    cap.release()
+                    return    
     
     #Release the file
     cv2.destroyAllWindows()
@@ -290,7 +282,7 @@ def main():
         print("  Set 'redo_option' in both scripts to 'True'")
     else:
         print("  All files are good for analysis.")
-        print("Proceed with batch_track_*.py script.")
+        print("Proceed with batch_bw_getData.py script.")
         print("  Set 'redo_option' to 'False'")
         print(" ")
 

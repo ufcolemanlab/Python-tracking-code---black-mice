@@ -2,12 +2,13 @@
 """
 File to process video files with previously selected ROIs
 
-Notes:
-    1) Maybe implement slider
-        mouse needs to be away from walls for mouse selection
-        mouse ideally in motion at pause
-    2) Maybe a "vet mode" that allows you to see tracking for 100 frames each video
-        select Y or N to keep *.p file or redo - creates list of redos for selectROI script
+by Brian Basnight, Jesse Trinity, Jason Coleman (Coleman Lab UF Pediatrics)
+
+Notes: For use with VOR data from Pi Camera (h264 files)
+For stimuluas detection to work, paramaters set for
+    1) Screens on left and right of video frame
+    2) 100 reversals, 30sec gray, 5 sessions, 5min delay (~100s each session; 100flips, 100flops)
+
 """
 
 import pickle
@@ -21,8 +22,10 @@ import os
 
 # Set options here
 crop_chamber = False
-redo_option = False #BE SURE TO DELETE REDO.p file
-
+redo_option = False #REDO.p file will be deleted if present in selected directory and set to 'False'
+preview_frames = 300 # number of frames to preview (default = 300)
+cannystate = False
+cannyThresh = 'hi' #change to opposite ('hi' or 'lo') if no stim detected or "Problem with stimFrames" error occurs
 
 # DO NOT ALTER CODE BELOW THIS LINE
 
@@ -40,12 +43,12 @@ if str.find(opcv_versioncheck,'3') == 0:
     opcv_version3 = True 
 elif str.find(opcv_versioncheck,'2') == 0:
     opcv_version3 = False #if opencv version 3.0 or greater, then true; if 2.
-    print ('Possible issues using less than opencv v3.0.0')
 
 
 #Setup file lists
-videoName = str(directory) +"/vid*.h264"
-roiName = str(directory) +"/vid*.p"
+videoName = str(directory) +"/*.h264"
+roiName = str(directory) +"/*.p"
+redoName = str(directory) +"/REDO.pickle"
 
 videoList = glob(videoName)
 roiList = glob(roiName)
@@ -55,6 +58,10 @@ if redo_option == True:
     videoList = redo_filenames['redoFiles']
     roiList = redo_filenames['redoFiles']
     roiList = [extension.replace('h264', 'p') for extension in roiList]
+elif redo_option == False:
+    if os.path.isfile(str(directory) +"/REDO.pickle"):
+        os.remove(str(directory) +"/REDO.pickle")
+        
   
 videoList.sort()
 roiList.sort()
@@ -70,48 +77,63 @@ def getPointExtremes(n):
     return ul, lr
 
 #uses canny edge detection to decide if either screen showed activity
-def detectStimulus(frame):
+def detectStimulus(frame,preview_cannnylines,cannyThresh):
             left_on = False
             right_on = False
             stim_left = frame[80:400, 40:90]
             stim_right = frame[80:400, 550:600]
             
             grayscale_left = cv2.cvtColor(stim_left,cv2.COLOR_BGR2GRAY)
-            #canny_left = cv2.Canny(grayscale_left,50,100,apertureSize = 3)
-            canny_left = cv2.Canny(grayscale_left,20,40,apertureSize = 3) #(JEC)
+            if cannyThresh == 'hi':
+                canny_left = cv2.Canny(grayscale_left,50,100,apertureSize = 3)
+            if cannyThresh == 'lo':
+                canny_left = cv2.Canny(grayscale_left,10,20,apertureSize = 3) #(JEC)
             lines_left = cv2.HoughLinesP(canny_left,1,np.pi/180,30,30,10)
             
             grayscale_right = cv2.cvtColor(stim_right,cv2.COLOR_BGR2GRAY)
-            #canny_right = cv2.Canny(grayscale_right,50,100,apertureSize = 3)
-            canny_right = cv2.Canny(grayscale_right,20,40,apertureSize = 3) #(JEC)
+            if cannyThresh == 'hi':
+                canny_right = cv2.Canny(grayscale_right,50,100,apertureSize = 3)
+            if cannyThresh == 'lo':
+                canny_right = cv2.Canny(grayscale_right,10,20,apertureSize = 3) #(JEC)
             lines_right = cv2.HoughLinesP(canny_right,1,np.pi/180,30,30,10)
             
+            if preview_cannnylines == True:
+                cv2.imshow('left',canny_left)
+                cv2.imshow('right',canny_right)
+            
             if lines_left is not None:
-                if len(lines_left > 5):
+                if len(lines_left > 20):
                     left_on = True
             
             if lines_right is not None:
-                if len(lines_right >5):
+                if len(lines_right > 20):
                     right_on = True
             
             return left_on, right_on
 
 #looks through the list of frame numbers and figures out where the stim
 #blocks begin/end by comparing the number of the next/previous index
-def getOnsets(list):
+def getOnsets(l,minframes):
     onsets = []
     offsets = []
     current = 0
-    for item in list:
+    for item in l:
         if(item - current >20):
             onsets.append(item)
             if (current !=0):
                 offsets.append(current)
     
         current = item
-    offsets.append(list[len(list)-1])
+    try:
+        offsets.append(l[-1])
+    except IndexError:
+        if len(onsets)<1 or len(offsets)<1:
+            print "list is empty"
+        return offsets
     
-    on_off_pairs = np.array(map(lambda x,y:(x,y),onsets,offsets))
+    list_pairs = map(lambda x,y:(x,y),onsets,offsets)
+    list_pairs = [x for x in list_pairs if x[1]-x[0] >minframes]
+    on_off_pairs = np.array(list_pairs)
     
     return on_off_pairs
 
@@ -199,7 +221,7 @@ def main():
 #            print frameNumber
             
             #detect stimulus and add frameNumber to appropriate list
-            left_on, right_on = detectStimulus(frame)
+            left_on, right_on = detectStimulus(frame, cannystate, 'hi')
             
             if (left_on == True):
                 left_stim_list.append(frameNumber)
@@ -211,7 +233,7 @@ def main():
                 frame = frame[cornUL[1]:cornLR[1],cornUL[0]:cornLR[0]]
             
             #image processing steps
-            #add white/black branch here(based on corner selection?)
+            #add white/black branch here (based on corner selection?)
             bwTemp = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             segmentedImage = cv2.GaussianBlur(bwTemp, (11, 11), 0)
             backProj = cv2.calcBackProject([segmentedImage], [0], roiHist, [0, 180], 1)
@@ -276,15 +298,13 @@ def main():
             #draw directional lines
             cv2.line(frame,mid,front,(0,0,255),2)
             cv2.line(frame,mid,right,(255,0,0),2)
-#            cv2.line(frame,mid,back,(0,200,127),2)
-#            cv2.line(frame,mid,left,(0,255,0),2)
             
             
             #show the frame for 300 frames
-            if frameNumber <= roiFrame + 300:
+            if frameNumber <= roiFrame + preview_frames:
                 cv2.imshow(frame_title,frame)
                 key = cv2.waitKey(1) & 0xFF
-            elif frameNumber > roiFrame + 300:
+            elif frameNumber > roiFrame + preview_frames:
                 cv2.destroyAllWindows()
             
             #quit video if user presses q
@@ -305,21 +325,25 @@ def main():
                         break
         
         #detect onsets/offsets on the screen which showed more activity
-        if (len(left_stim_list)>len(right_stim_list)):
+        leftFrames = getOnsets(left_stim_list,2000) #e.g., stim frames are ~2580 for 100 reversals
+        rightFrames = getOnsets(right_stim_list,2000)
+        
+        if (len(leftFrames)>len(rightFrames)):
             stimLocation = 'left'
-            stimFrames = getOnsets(left_stim_list)
-        elif (len(left_stim_list)<len(right_stim_list)):
+            stimFrames = leftFrames
+
+        elif(len(rightFrames)>len(leftFrames)):
             stimLocation = 'right'
-            stimFrames = getOnsets(right_stim_list)
-        else:
+            stimFrames = rightFrames
+
+        elif len(leftFrames)==len(rightFrames):
             print "No stimulus detected: check stimulus parameters"
             
         # Final check added by (JEC)    
-        if (len(stimFrames)<5) or (len(stimFrames)<5):
+        if (len(stimFrames)<5) or (len(stimFrames)>5):
             print "Problem with stimFrames output: check stimulus parameters"
-            print "     May need to adjust 'canny_left' and 'canny_right' thresholds in 'def detectStimulus'"
+            print "     May need to adjust 'cannyThresh' value for 'def detectStimulus'"
             
-        
         print "stims:"
         print stimFrames
         print "distance traveled: " + str(dist)
@@ -334,12 +358,8 @@ def main():
                           "directionalPoints":directionalPoints,"directionAngle":directionAngle}
         matlab.savemat(saveName+'.mat', savedVariables)
         
-        
         #Release the file
         cv2.destroyAllWindows()
         cap.release()
 
 main()
-
-
-

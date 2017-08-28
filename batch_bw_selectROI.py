@@ -2,15 +2,24 @@
 """
 File for selecting mouse ROI and box corners. Saves to same directory as
 the h264 file.
-p: pauses the video
-m: change modes between ROI selection and corner selection 
-s: saves the regions you picked
-q or esc: quit (does not save)
 
-if you mess up, just hit p twice to unpause and pause - you will
-start over in ROI selection mode
+by Brian Basnight, Jesse Trinity, Jason Coleman (Coleman Lab UF Pediatrics)
 
-Coleman Lab
+NOTES:
+    p: pauses the video
+    m: change modes between ROI selection and corner selection 
+    s: saves the regions you picked
+    q or esc: quit (does not save)
+    
+    If you mess up, just hit p twice to unpause and pause - you will
+    start over in ROI selection mode
+    
+    Make sure to set "redo_option" to True if re-processing files after 'vetTracking'.
+
+    FUTURE:
+    1) Maybe implement slider to rapidly scrub/select frame for ROI selection
+        Mouse needs to be away from walls for mouse selection
+        Mouse ideally in motion at pause
 """
 
 import Tkinter as tk
@@ -21,7 +30,7 @@ import pickle
 import os
 
 # Set options here
-redo_option = False
+redo_option = False #Set to 'False' for first run; Set to 'True' to only run failed files from 'vetTracking'
 
 
 # DO NOT ALTER CODE BELOW THIS LINE
