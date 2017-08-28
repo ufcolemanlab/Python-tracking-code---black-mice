@@ -8,6 +8,9 @@ Test/example files (*.mp4 and *.h264) files are included in the directory.
 
 Use the following scripts together:  
 batch_bw_selectROI.py - Set field bounds and object to track; run first to select field corners and subject (mouse)  
+
 batch_bw_vetTracking.py - Vet the ROIs; run second to verify all mice are being tracked  
+
 batch_bw_getData.py - Generates the data; run this script once tracking ROIs are validated, set and working
+
 getFrame.py - Used to generate 5 images - middle image is stimulus onset/offset frame based on data in MAT file, flanking images are 2 after and 2 before (use getFrame.get_frame_imgs()) Also can use getFrame.get_matfile_info(filename) to get all data from MAT file. 
