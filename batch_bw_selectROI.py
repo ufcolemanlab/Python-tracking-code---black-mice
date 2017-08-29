@@ -25,7 +25,6 @@ NOTES:
 import Tkinter as tk
 import tkFileDialog
 import cv2
-#from scipy.io import matlab
 import pickle
 import os
 
@@ -42,16 +41,19 @@ frameNumber = 0
 corners = []
 roiPoints = []
 
-#check which open cv version
-#opcv_version3 = 1 #if opencv version 3.0 or greater, then true; if 2.4.x then false
-#if opencv version 3.0 or greater, then true; if 2.x then false (JEC)
-print ('opencv version: '+ str(cv2.__version__))
-opcv_versioncheck = cv2.__version__
-if str.find(opcv_versioncheck,'3') == 0:
-    opcv_version3 = True 
-elif str.find(opcv_versioncheck,'2') == 0:
-    opcv_version3 = False #if opencv version 3.0 or greater, then true; if 2.4.x then false
-    print ('Possible issues using less than opencv v3.0.0')
+def check_cv():
+    #check which open cv version
+    #opcv_version3 = 1 #if opencv version 3.0 or greater, then true; if 2.4.x then false
+    #if opencv version 3.0 or greater, then true; if 2.x then false (JEC)
+    print ('opencv version: '+ str(cv2.__version__))
+    opcv_versioncheck = cv2.__version__
+    if str.find(opcv_versioncheck,'3') == 0:
+        opcv_version3 = True 
+    elif str.find(opcv_versioncheck,'2') == 0:
+        opcv_version3 = False #if opencv version 3.0 or greater, then true; if 2.4.x then false
+        print ('Possible issues using less than opencv v3.0.0')
+        
+    return 
 
 #open file
 if redo_option == False:

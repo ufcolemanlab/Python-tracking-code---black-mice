@@ -18,8 +18,12 @@ import cv2
 import numpy as np
 import os
 
+global stim_frame1_number
+
+stim_frame1_number = 0
 crop_chamber = False
-#frameNumber = 7000 #enter frame number to start vetting from (frame 7590 is ~first stim onset after 5min delay/gray)
+
+# DO NOT ALTER CODE BELOW THIS LINE
 
 #GUI stuff
 root = tk.Tk()
@@ -132,7 +136,7 @@ def main():
         dist_all = []
         mouse_centroid = []
         frameNumber = 0
-        stim_frame1_number = 7300 
+        #stim_frame1_number = 7300 
         dist = 0
         avg_index = 0
         
