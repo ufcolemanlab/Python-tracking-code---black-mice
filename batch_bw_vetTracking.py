@@ -20,7 +20,7 @@ import os
 
 global stim_frame1_number
 
-stim_frame1_number = 0
+stim_frame1_number = 0 #7200
 crop_chamber = False
 
 # DO NOT ALTER CODE BELOW THIS LINE

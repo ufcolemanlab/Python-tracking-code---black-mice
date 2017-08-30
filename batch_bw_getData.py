@@ -23,9 +23,15 @@ import os
 # Set options here
 crop_chamber = False
 redo_option = False #REDO.p file will be deleted if present in selected directory and set to 'False'
-preview_frames = 300 # number of frames to preview (default = 300)
-cannystate = False
-cannyThresh = 'hi' #change to opposite ('hi' or 'lo') if no stim detected or "Problem with stimFrames" error occurs
+cannystate = False #True for preview, False for analysis
+cannyThresh = 'lo' #change to opposite ('hi' or 'lo') if no stim detected or "Problem with stimFrames" error occurs
+
+if cannystate is True:
+    preview_frames = 15000
+    skipframes = 7200
+elif cannystate is False:
+    preview_frames = 300 #15000#300 # number of frames to preview (default = 300)
+    skipframes = 0
 
 # DO NOT ALTER CODE BELOW THIS LINE
 
@@ -78,38 +84,40 @@ def getPointExtremes(n):
 
 #uses canny edge detection to decide if either screen showed activity
 def detectStimulus(frame,preview_cannnylines,cannyThresh):
-            left_on = False
-            right_on = False
-            stim_left = frame[80:400, 40:90]
-            stim_right = frame[80:400, 550:600]
-            
-            grayscale_left = cv2.cvtColor(stim_left,cv2.COLOR_BGR2GRAY)
-            if cannyThresh == 'hi':
-                canny_left = cv2.Canny(grayscale_left,50,100,apertureSize = 3)
-            if cannyThresh == 'lo':
-                canny_left = cv2.Canny(grayscale_left,10,20,apertureSize = 3) #(JEC)
-            lines_left = cv2.HoughLinesP(canny_left,1,np.pi/180,30,30,10)
-            
-            grayscale_right = cv2.cvtColor(stim_right,cv2.COLOR_BGR2GRAY)
-            if cannyThresh == 'hi':
-                canny_right = cv2.Canny(grayscale_right,50,100,apertureSize = 3)
-            if cannyThresh == 'lo':
-                canny_right = cv2.Canny(grayscale_right,10,20,apertureSize = 3) #(JEC)
-            lines_right = cv2.HoughLinesP(canny_right,1,np.pi/180,30,30,10)
-            
-            if preview_cannnylines == True:
-                cv2.imshow('left',canny_left)
-                cv2.imshow('right',canny_right)
-            
-            if lines_left is not None:
-                if len(lines_left > 20):
-                    left_on = True
-            
-            if lines_right is not None:
-                if len(lines_right > 20):
-                    right_on = True
-            
-            return left_on, right_on
+    left_on = False
+    right_on = False
+    stim_left = frame[80:400, 40:90]
+    stim_right = frame[80:400, 550:600]
+    
+    grayscale_left = cv2.cvtColor(stim_left,cv2.COLOR_BGR2GRAY)
+    #grayscale_left = cv2.equalizeHist(grayscale_left)
+    if cannyThresh == 'hi':
+        canny_left = cv2.Canny(grayscale_left,50,100,apertureSize = 3)
+    if cannyThresh == 'lo':
+        canny_left = cv2.Canny(grayscale_left,10,20,apertureSize = 3) #(JEC)
+    lines_left = cv2.HoughLinesP(canny_left,1,np.pi/180,30,30,10)
+    
+    grayscale_right = cv2.cvtColor(stim_right,cv2.COLOR_BGR2GRAY)
+    #grayscale_right = cv2.equalizeHist(grayscale_right)
+    if cannyThresh == 'hi':
+        canny_right = cv2.Canny(grayscale_right,50,100,apertureSize = 3)
+    if cannyThresh == 'lo':
+        canny_right = cv2.Canny(grayscale_right,10,20,apertureSize = 3) #(JEC)
+    lines_right = cv2.HoughLinesP(canny_right,1,np.pi/180,30,30,10)
+    
+    if preview_cannnylines == True:
+        cv2.imshow('left',canny_left)
+        cv2.imshow('right',canny_right)
+    
+    if lines_left is not None:
+        if len(lines_left > 20):
+            left_on = True
+    
+    if lines_right is not None:
+        if len(lines_right > 20):
+            right_on = True
+    
+    return left_on, right_on
 
 #looks through the list of frame numbers and figures out where the stim
 #blocks begin/end by comparing the number of the next/previous index
@@ -210,6 +218,14 @@ def main():
         roiHist = cv2.calcHist([roi], [0], None, [16], [0,180])
         roiHist = cv2.normalize(roiHist, roiHist, 0, 255, cv2.NORM_MINMAX)
                
+       #For skipping frames
+        if cannystate == True:
+            for i in range(skipframes-roiFrame):
+                ret, frame = cap.read()
+                if not ret:
+                    break
+            frameNumber +=1  
+             
         #Read the video
         while cap.isOpened():
             
@@ -221,7 +237,7 @@ def main():
 #            print frameNumber
             
             #detect stimulus and add frameNumber to appropriate list
-            left_on, right_on = detectStimulus(frame, cannystate, 'hi')
+            left_on, right_on = detectStimulus(frame, cannystate, cannyThresh)
             
             if (left_on == True):
                 left_stim_list.append(frameNumber)

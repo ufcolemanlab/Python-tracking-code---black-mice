@@ -82,3 +82,4 @@ def get_frame_imgs():
             cap = cv2.VideoCapture(filenames_vid[i])            
             show_onset(filenames_vid[i], stimFrameList[j], cap)            
             print(str(stimFrameList[j]))
+get_frame_imgs()
